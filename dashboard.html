@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SymptoCare - Dashboard</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Define custom colors and font */
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fc; }
+        .sympto-color { color: #14b8a6; } /* Teal */
+        .sympto-bg { background-color: #14b8a6; }
+        .sympto-bg-light { background-color: #e0f2f1; } /* Light Teal for active state */
+        .sidebar { transition: transform 0.3s ease-in-out; }
+        .active-link { background-color: #e0f2f1; color: #14b8a6; font-weight: 600; }
+        .profile-line::after { content: ''; display: block; width: 100%; height: 2px; background-color: #e2e8f0; margin-top: 0.5rem; }
+
+        /* Mobile sidebar overlay */
+        @media (max-width: 1023px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100%;
+                width: 250px;
+                z-index: 50;
+                transform: translateX(-100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+        }
+
+        /* Full height for chat container */
+        #content-area {
+            min-height: calc(100vh - 8rem); /* Adjust based on header/padding */
+            display: flex;
+            flex-direction: column;
+        }
+
+        #chat-main-container {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1; /* Allows it to take up available height */
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+            width: 100%;
+            height: 100%;
+        }
+        #chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            min-height: 200px; 
+            display: flex;
+            flex-direction: column; /* Ensure messages stack */
+        }
+        .user-message {
+            background-color: #d1e5f8; /* Light blue */
+            align-self: flex-end;
+            border-radius: 12px 12px 2px 12px;
+        }
+        .ai-message {
+            background-color: #e0f2f1; /* Light teal */
+            align-self: flex-start;
+            border-radius: 12px 12px 12px 2px;
+        }
+    </style>
+    <!-- Load Lucide icons for a clean look -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body onload="checkAuthAndLoadDashboard()">
+
+    <!-- Sidebar / Mobile Navigation -->
+    <aside id="sidebar" class="sidebar bg-white shadow-xl lg:shadow-none p-4 lg:w-64 lg:fixed lg:h-full flex flex-col">
+        <!-- Logo and Close Button (Mobile only) -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-xl font-bold sympto-color">SymptoCare</h1>
+            <button id="closeSidebar" class="lg:hidden p-2 rounded-full hover:bg-gray-100">
+                <i data-lucide="x" class="w-6 h-6 text-gray-700"></i>
+            </button>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="space-y-2 flex-grow">
+            <a href="#" data-view="chat" class="nav-link flex items-center p-3 rounded-xl text-gray-700 hover:bg-gray-50 active-link">
+                <i data-lucide="message-square" class="w-5 h-5 mr-3"></i> Chat
+            </a>
+            <a href="#" data-view="profile" class="nav-link flex items-center p-3 rounded-xl text-gray-700 hover:bg-gray-50">
+                <i data-lucide="user" class="w-5 h-5 mr-3"></i> Profile
+            </a>
+            <a href="#" data-view="history" class="nav-link flex items-center p-3 rounded-xl text-gray-700 hover:bg-gray-50">
+                <i data-lucide="history" class="w-5 h-5 mr-3"></i> Chat History
+            </a>
+            <a href="#" data-view="addons" class="nav-link flex items-center p-3 rounded-xl text-gray-700 hover:bg-gray-50">
+                <i data-lucide="zap" class="w-5 h-5 mr-3 text-orange-500"></i> Add-ons
+            </a>
+        </nav>
+
+        <!-- Logout Button -->
+        <button id="logoutButton" class="w-full mt-6 py-2 px-4 text-sm font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition duration-150">
+            Log Out
+        </button>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="lg:ml-64 p-4 md:p-8 flex-grow">
+        <!-- Header (Desktop/Mobile) -->
+        <header class="flex justify-between items-center pb-4 border-b lg:border-none mb-6">
+            <h2 class="text-2xl font-semibold text-gray-800 hidden lg:block">SymptoCare</h2>
+            
+            <button id="openSidebar" class="lg:hidden p-2 rounded-full hover:bg-gray-100">
+                <i data-lucide="menu" class="w-6 h-6 text-gray-700"></i>
+            </button>
+            
+            <!-- User Info (Desktop/Mobile) -->
+            <div class="flex items-center space-x-2">
+                <p id="headerUsername" class="text-gray-700 font-medium text-sm hidden sm:block">User</p>
+                <div class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
+                    <!-- Placeholder Profile Image -->
+                    <img id="headerProfileImage" src="https://placehold.co/100x100/A0AEC0/ffffff?text=U" alt="Profile" class="w-full h-full object-cover">
+                </div>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Container -->
+        <div id="content-area" class="bg-white p-4 sm:p-6 rounded-2xl shadow-lg min-h-[80vh]">
+            <!-- Views will be injected here -->
+        </div>
+    </main>
+
+    <script>
+        // Global state for user data and chat history
+        let USER_DATA = null;
+        let CURRENT_VIEW = 'chat';
+        let CHAT_HISTORY = [];
+        
+        // --- API & Auth Configuration ---
+        const API_KEY = "AIzaSyDS4TGcYxGDCVw7AxTit5OdpYlJ8MXeptI";
+        const API_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent';
+        const SYSTEM_INSTRUCTION = "You are SymptoCare, a friendly and cautious AI health companion. Your goal is to help the user understand their symptoms and provide general, non-diagnostic health guidance. ALWAYS include a clear disclaimer that you are NOT a substitute for professional medical advice. Keep responses concise and empathetic.";
+
+
+        // --- Utility Functions ---
+
+        // Function to ensure user is logged in
+        function checkAuthAndLoadDashboard() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            const storedUserJson = localStorage.getItem('symptoCareUser');
+
+            if (!isLoggedIn || !storedUserJson) {
+                // If not logged in or data is missing, redirect to login
+                console.warn("Authentication failed, redirecting to login.");
+                window.location.href = 'login.html'; 
+                return;
+            }
+
+            try {
+                USER_DATA = JSON.parse(storedUserJson);
+                // Update header username and profile placeholder
+                updateHeaderUserData();
+                
+                // Initialize the dashboard to the default view (Chat)
+                renderView(CURRENT_VIEW);
+                
+                // Initialize Lucide icons
+                lucide.createIcons();
+
+            } catch (e) {
+                console.error("Failed to parse user data:", e);
+                // Clear state and redirect to login
+                localStorage.removeItem('isLoggedIn');
+                localStorage.removeItem('symptoCareUser');
+                window.location.href = 'login.html'; 
+            }
+        }
+        
+        // Function to update header with user data
+        function updateHeaderUserData() {
+            const username = USER_DATA?.username || 'User';
+            document.getElementById('headerUsername').textContent = username;
+            document.getElementById('headerProfileImage').src = `https://placehold.co/100x100/A0AEC0/ffffff?text=${username.charAt(0)}`;
+        }
+
+        // Function to format date for Profile
+        function formatDate(isoString) {
+            if (!isoString) return 'N/A';
+            const date = new Date(isoString);
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return date.toLocaleDateString('en-US', options);
+        }
+
+        // Function to display temporary messages
+        function displayMessage(message, type = 'info') {
+            let msgBox = document.getElementById('messageBox');
+            if (!msgBox) {
+                msgBox = document.createElement('div');
+                msgBox.id = 'messageBox';
+                msgBox.classList.add('fixed', 'top-4', 'right-4', 'p-4', 'rounded-lg', 'shadow-xl', 'z-50', 'text-sm', 'font-medium', 'transition-all', 'duration-300');
+                document.body.appendChild(msgBox);
+            }
+
+            msgBox.textContent = message;
+            msgBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-blue-100', 'text-blue-700');
+            
+            if (type === 'success') {
+                msgBox.classList.add('bg-green-100', 'text-green-700');
+            } else if (type === 'error') {
+                msgBox.classList.add('bg-red-100', 'text-red-700');
+            } else {
+                msgBox.classList.add('bg-blue-100', 'text-blue-700');
+            }
+
+            setTimeout(() => {
+                msgBox.remove();
+            }, 4000);
+        }
+
+        // --- Gemini API Function ---
+        async function fetchGeminiResponse(userPrompt) {
+            const payload = {
+                contents: [{ parts: [{ text: userPrompt }] }],
+                systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+                tools: [{ "google_search": {} }],
+            };
+
+            const url = `${API_URL_BASE}?key=${API_KEY}`;
+            const maxRetries = 5;
+            let delay = 1000;
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
+                        return text;
+                    } else if (response.status === 429 && i < maxRetries - 1) {
+                        // Too many requests (throttling) - retry with exponential backoff
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2; // Exponential backoff
+                        continue;
+                    } else {
+                        // Other error status
+                        throw new Error(`API error: ${response.statusText}`);
+                    }
+                } catch (error) {
+                    console.error("Fetch error:", error);
+                    if (i < maxRetries - 1) {
+                         await new Promise(resolve => setTimeout(resolve, delay));
+                         delay *= 2;
+                         continue;
+                    }
+                    return "I encountered an error connecting to the AI service. Please try again later.";
+                }
+            }
+            return "Failed to get a response after multiple retries.";
+        }
+
+        // --- Chat Logic ---
+
+        function appendMessage(sender, text, isLoading = false) {
+            const messagesContainer = document.getElementById('chat-messages');
+            if (!messagesContainer) return;
+
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('flex', 'flex-col', 'mb-4', sender === 'user' ? 'items-end' : 'items-start');
+            messageDiv.innerHTML = `
+                <div class="max-w-xs sm:max-w-md p-3 shadow-md text-gray-800 text-sm ${sender === 'user' ? 'user-message' : 'ai-message'}">
+                    ${isLoading ? `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mr-2 inline-block"></i> Thinking...` : text}
+                </div>
+            `;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight; // Scroll to bottom
+            lucide.createIcons(); // Update icons for loader
+            return messageDiv;
+        }
+
+        async function sendMessage(event) {
+            if (event) {
+                event.preventDefault(); // Prevent form submission
+                if (event.type === 'keydown' && event.key !== 'Enter') return;
+            }
+
+            const input = document.getElementById('chat-input');
+            const quickTags = document.getElementById('quick-symptom-tags');
+            if (!input || !input.value.trim()) return;
+
+            const userPrompt = input.value.trim();
+            input.value = ''; // Clear input
+
+            // 1. Append user message and hide quick tags
+            appendMessage('user', userPrompt);
+            quickTags.classList.add('hidden'); 
+            
+            // 2. Append loading message for AI response
+            const loadingMessage = appendMessage('ai', '', true);
+
+            try {
+                const aiResponseText = await fetchGeminiResponse(userPrompt);
+                
+                // 3. Update the loading message with the final response
+                CHAT_HISTORY.push({ user: userPrompt, ai: aiResponseText });
+                
+                const responseContent = `
+                    ${aiResponseText.replace(/\n/g, '<br>')}
+                `;
+
+                loadingMessage.innerHTML = `
+                    <div class="max-w-xs sm:max-w-md p-3 shadow-md text-gray-800 text-sm ai-message">
+                        ${responseContent}
+                    </div>
+                `;
+            } catch (error) {
+                loadingMessage.innerHTML = `
+                    <div class="max-w-xs sm:max-w-md p-3 shadow-md text-gray-800 text-sm bg-red-100 rounded-lg">
+                        Error: Failed to connect to AI.
+                    </div>
+                `;
+            }
+            document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
+            quickTags.classList.remove('hidden');
+        }
+
+        // --- View Rendering Functions ---
+
+        function renderChatView() {
+            return `
+                <div id="chat-main-container" class="h-full">
+                    <!-- Chat Messages Container -->
+                    <div id="chat-messages" class="p-2 sm:p-4 mb-4 rounded-xl border border-gray-200 bg-gray-50 flex flex-col space-y-3">
+                        <!-- Welcome Box (Only shows if no messages) -->
+                        <div id="welcome-box" class="bg-blue-50 border border-blue-200 text-blue-800 p-6 rounded-xl self-center mx-auto max-w-lg mb-8">
+                            <h3 class="text-xl font-semibold mb-2">Welcome to SymptoCare! 👋</h3>
+                            <p class="text-sm mb-3">I'm your AI health companion, here to help you understand your symptoms and provide health guidance. Please remember that I'm not a substitute for professional medical advice.</p>
+                            <p class="font-medium">How are you feeling today, ${USER_DATA.username || 'user'}?</p>
+                        </div>
+                        <!-- Messages appended here -->
+                    </div>
+
+                    <!-- Quick Symptom Tags -->
+                    <div id="quick-symptom-tags" class="flex flex-wrap gap-2 mb-4 justify-center">
+                        <span onclick="document.getElementById('chat-input').value='I have a high fever';" class="px-3 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full cursor-pointer hover:bg-red-200 transition">🔥 Fever</span>
+                        <span onclick="document.getElementById('chat-input').value='I have a pounding headache';" class="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full cursor-pointer hover:bg-yellow-200 transition">🤕 Headache</span>
+                        <span onclick="document.getElementById('chat-input').value='I have a persistent cough';" class="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full cursor-pointer hover:bg-green-200 transition">😷 Cough</span>
+                        <span onclick="document.getElementById('chat-input').value='My stomach hurts';" class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full cursor-pointer hover:bg-blue-200 transition">🤢 Stomach Pain</span>
+                    </div>
+
+                    <!-- Input Area -->
+                    <form id="chat-form" class="flex items-center border border-gray-300 rounded-xl overflow-hidden shadow-md">
+                        <input type="text" id="chat-input" placeholder="Describe your symptoms..." class="w-full p-4 focus:outline-none text-gray-800" />
+                        <button type="submit" class="sympto-bg text-white p-4 hover:bg-teal-700 transition duration-150">
+                            <i data-lucide="send" class="w-5 h-5"></i>
+                        </button>
+                    </form>
+                </div>
+            `;
+        }
+        
+        // This function adds the chat form listener after the view is rendered
+        function setupChatListeners() {
+            document.getElementById('chat-form')?.addEventListener('submit', sendMessage);
+        }
+
+        function renderProfileView(isEditing = false) {
+            const username = USER_DATA.username || 'N/A';
+            const age = USER_DATA.age || 'N/A';
+            const phone = USER_DATA.phone || 'N/A';
+            const memberSince = USER_DATA.registrationTimestamp ? formatDate(USER_DATA.registrationTimestamp) : 'N/A';
+            
+            // Shared Health Information (Mock Data)
+            const healthData = [
+                { label: "Blood Group", value: "Not specified" },
+                { label: "Known Allergies", value: "None specified" },
+                { label: "Chronic Conditions", value: "None specified" },
+                { label: "Emergency Contact", value: "Not specified" }
+            ];
+
+            const renderField = (label, id, value, type = 'text') => `
+                <div class="space-y-1">
+                    <label for="${id}" class="text-gray-500 text-sm">${label}</label>
+                    ${isEditing 
+                        ? `<input type="${type}" id="${id}" value="${value}" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium">`
+                        : `<p class="font-medium text-gray-900">${value}</p>`
+                    }
+                </div>
+            `;
+            
+            const renderStaticField = (label, value) => `
+                <div class="space-y-1">
+                    <p class="text-gray-500 text-sm">${label}</p>
+                    <p class="font-medium text-gray-900">${value}</p>
+                </div>
+            `;
+
+            return `
+                <div class="max-w-3xl mx-auto">
+                    <form id="profileForm" class="space-y-8">
+                        <div class="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6 mb-8 p-6 bg-gray-50 rounded-2xl">
+                            <!-- Profile Image -->
+                            <div class="w-24 h-24 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                <img src="https://placehold.co/100x100/A0AEC0/ffffff?text=${username.charAt(0)}" alt="User Profile" class="w-full h-full object-cover">
+                            </div>
+                            
+                            <!-- Header and Button -->
+                            <div class="flex flex-grow justify-between items-center w-full sm:w-auto">
+                                <h2 class="text-2xl font-bold text-gray-800">${username}'s Profile</h2>
+                                ${isEditing 
+                                    ? `<button type="submit" class="bg-green-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-green-700 transition duration-150 text-sm">Save Profile</button>`
+                                    : `<button type="button" id="editProfileBtn" class="bg-blue-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition duration-150 text-sm">Edit Profile</button>`
+                                }
+                            </div>
+                        </div>
+
+                        <div class="space-y-8 p-6 border border-gray-200 rounded-2xl">
+                            <!-- User Information Section -->
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4 profile-line">User Information</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                                    ${renderField("Username", "editUsername", username, 'text')}
+                                    ${renderField("Age", "editAge", age, 'number')}
+                                    ${renderField("Phone Number", "editPhone", phone, 'tel')}
+                                    ${renderStaticField("Member Since", memberSince)}
+                                </div>
+                            </div>
+
+                            <!-- Health Information Section (Static for this demo, editable in a full app) -->
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4 profile-line">Health Information</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                                    ${healthData.map(d => renderStaticField(d.label, d.value)).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            `;
+        }
+
+        function setupProfileListeners() {
+            const contentArea = document.getElementById('content-area');
+            
+            // Listener for the initial "Edit Profile" button
+            document.getElementById('editProfileBtn')?.addEventListener('click', () => {
+                contentArea.innerHTML = renderProfileView(true);
+                setupProfileListeners(); // Re-attach listeners for the new form
+            });
+
+            // Listener for the "Save Profile" form submission
+            document.getElementById('profileForm')?.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                const newUsername = document.getElementById('editUsername').value.trim();
+                const newAge = document.getElementById('editAge').value.trim();
+                const newPhone = document.getElementById('editPhone').value.trim();
+
+                // Basic validation (use existing regex from index.html for robustness)
+                const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+                const ageNum = parseInt(newAge);
+                const phoneRegex = /^\d{6,}$/;
+
+                if (!usernameRegex.test(newUsername)) {
+                    displayMessage("Username must be 3-20 alphanumeric characters and underscore only.", 'error');
+                    return;
+                }
+                if (isNaN(ageNum) || ageNum < 12 || ageNum > 120) {
+                    displayMessage("Age must be between 12 and 120.", 'error');
+                    return;
+                }
+                if (!phoneRegex.test(newPhone)) {
+                    displayMessage("Please enter a valid phone number (at least 6 digits).", 'error');
+                    return;
+                }
+
+                // Update USER_DATA object
+                USER_DATA.username = newUsername;
+                USER_DATA.age = ageNum;
+                USER_DATA.phone = newPhone;
+                
+                // Save back to Local Storage
+                localStorage.setItem('symptoCareUser', JSON.stringify(USER_DATA));
+
+                // Update header info
+                updateHeaderUserData();
+
+                displayMessage("Profile updated successfully!", 'success');
+                // Re-render the view in read-only mode
+                contentArea.innerHTML = renderProfileView(false);
+                setupProfileListeners();
+            });
+        }
+        
+        function renderHistoryView() {
+            // Placeholder for chat history data, pulled from CHAT_HISTORY array
+            return `
+                <div class="max-w-4xl mx-auto">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Chat History</h2>
+                    
+                    <!-- Search and Filters Box -->
+                    <div class="bg-white p-4 rounded-xl shadow mb-6 border border-gray-200">
+                        <div class="flex items-center mb-4 border border-gray-300 rounded-lg overflow-hidden">
+                            <input type="text" placeholder="Search conversations..." class="w-full p-3 focus:outline-none text-gray-800" />
+                            <button class="bg-blue-600 text-white p-3 hover:bg-blue-700 transition duration-150">
+                                <i data-lucide="search" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                            <select class="p-2 border border-gray-300 rounded-lg text-gray-700 focus:ring-blue-500">
+                                <option>All dates</option>
+                                <option>Last 7 days</option>
+                                <option>Last 30 days</option>
+                            </select>
+                            <select class="p-2 border border-gray-300 rounded-lg text-gray-700 focus:ring-blue-500">
+                                <option>All symptoms</option>
+                                <option>Headache</option>
+                                <option>Fever</option>
+                            </select>
+                            <button class="text-sm font-medium text-gray-600 hover:text-gray-900 justify-self-start sm:justify-self-end mt-2 sm:mt-0" onclick="displayMessage('Filters Cleared!', 'info')">
+                                Clear Filters
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- History List Item (Mock Data or live chat history) -->
+                    <div class="space-y-4">
+                        ${CHAT_HISTORY.length > 0 ? 
+                            CHAT_HISTORY.slice().reverse().map( (chat, index) => `
+                                <div class="bg-white p-4 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition cursor-pointer">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <h4 class="text-lg font-semibold text-gray-900">${chat.user.substring(0, 30)}...</h4>
+                                        <div class="flex items-center space-x-2 text-gray-400">
+                                            <i data-lucide="trash-2" class="w-4 h-4 hover:text-red-500 cursor-pointer transition" onclick="event.stopPropagation(); displayMessage('Conversation deleted!', 'info')"></i>
+                                        </div>
+                                    </div>
+                                    <p class="text-sm text-gray-500 mb-2">Today, ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
+                                    <p class="text-gray-700 mb-3 line-clamp-1">${chat.ai.substring(0, 100)}...</p>
+                                    <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium">Chat</span>
+                                </div>
+                            `).join('')
+                            : `<div class="text-center text-gray-500 p-10">Start a chat in the Chat tab to view history here.</div>`
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAddonsView() {
+            // Card component template for reusability
+            const featureCard = (title, icon, status, description, features, buttonText, isPrimary = false) => `
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 h-full flex flex-col">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center space-x-3">
+                            <i data-lucide="${icon}" class="w-8 h-8 ${isPrimary ? 'text-blue-600' : 'text-purple-600'}"></i>
+                            <h4 class="text-xl font-semibold text-gray-800">${title}</h4>
+                        </div>
+                        <span class="text-xs font-semibold py-1 px-3 rounded-full ${isPrimary ? 'text-white bg-blue-600' : 'text-orange-700 bg-orange-100'}">${status}</span>
+                    </div>
+
+                    <p class="text-gray-600 mb-4 flex-grow">${description}</p>
+
+                    <ul class="space-y-2 mb-6">
+                        ${features.map(f => `
+                            <li class="flex items-center text-sm text-gray-700">
+                                <i data-lucide="check-circle" class="w-4 h-4 text-green-500 mr-2 flex-shrink-0"></i>
+                                <span>${f}</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+
+                    <button class="mt-auto w-full py-2 px-4 text-sm font-medium rounded-lg shadow-md transition duration-150
+                        ${isPrimary 
+                            ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                            : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'}"
+                        onclick="displayMessage('${buttonText} clicked for ${title}.', 'info')">
+                        ${buttonText}
+                    </button>
+                </div>
+            `;
+
+            return `
+                <div class="max-w-6xl mx-auto">
+                    <h2 class="text-3xl font-bold text-gray-800 text-center mb-4">Coming Soon Features</h2>
+                    <p class="text-center text-gray-600 mb-10">Exciting new features are on the way to enhance your SymptoCare experience!</p>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-4 md:grid-cols-2 gap-6">
+                        ${featureCard(
+                            "Agentic AI Reminders",
+                            "bell",
+                            "COMING SOON",
+                            "Intelligent reminders for medication, appointments, and health check-ups based on your conversations and health profile.",
+                            ["Smart medication reminders", "Appointment notifications", "Follow-up symptom tracking", "Personalized health tips"],
+                            "Notify When Ready"
+                        )}
+                        ${featureCard(
+                            "Call Assistant",
+                            "phone-call",
+                            "COMING SOON",
+                            "Voice-enabled AI assistant for hands-free health consultations and emergency support.",
+                            ["Voice symptom reporting", "Emergency call assistance", "Hands-free interaction", "Multi-language support"],
+                            "Notify When Ready"
+                        )}
+                        ${featureCard(
+                            "Health Analytics",
+                            "bar-chart-2",
+                            "COMING SOON",
+                            "Comprehensive health insights and trend analysis based on your symptom patterns and interactions.",
+                            ["Symptom pattern analysis", "Health trend visualization", "Risk factor identification", "Wellness score tracking"],
+                            "Notify When Ready"
+                        )}
+                        ${featureCard(
+                            "Telemedicine Integration",
+                            "activity",
+                            "BEST",
+                            "Connect with certified doctors directly through the platform for professional medical consultations.",
+                            ["Video consultations", "Doctor matching", "Prescription management", "Medical record sharing"],
+                            "Join Beta",
+                            true
+                        )}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // --- Core Application Logic ---
+
+        // Function to render the correct view based on the CURRENT_VIEW state
+        function renderView(viewName) {
+            const contentArea = document.getElementById('content-area');
+            let htmlContent = '';
+            
+            // Remove error class from inputs on view change
+            document.querySelectorAll('input').forEach(input => input.classList.remove('border-red-500'));
+
+
+            switch (viewName) {
+                case 'chat':
+                    htmlContent = renderChatView();
+                    break;
+                case 'profile':
+                    htmlContent = renderProfileView(false); // Start in read-only mode
+                    break;
+                case 'history':
+                    htmlContent = renderHistoryView();
+                    break;
+                case 'addons':
+                    htmlContent = renderAddonsView();
+                    break;
+                default:
+                    htmlContent = '<h2>404: View Not Found</h2>';
+            }
+
+            contentArea.innerHTML = htmlContent;
+            CURRENT_VIEW = viewName;
+            updateNavLinks(viewName);
+            lucide.createIcons(); // Re-render icons after content injection
+            
+            // Add specific listeners for the rendered view
+            if (viewName === 'profile') {
+                setupProfileListeners();
+            } else if (viewName === 'chat') {
+                setupChatListeners();
+            }
+            
+            // Close mobile sidebar if open
+            document.getElementById('sidebar').classList.remove('open');
+        }
+
+        // Function to update the active navigation link style
+        function updateNavLinks(activeView) {
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active-link');
+                if (link.getAttribute('data-view') === activeView) {
+                    link.classList.add('active-link');
+                }
+            });
+        }
+        
+        // --- Event Listeners Setup ---
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // Navigation links setup
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const view = link.getAttribute('data-view');
+                    renderView(view);
+                });
+            });
+
+            // Mobile sidebar toggles
+            document.getElementById('openSidebar')?.addEventListener('click', () => {
+                document.getElementById('sidebar').classList.add('open');
+            });
+            document.getElementById('closeSidebar')?.addEventListener('click', () => {
+                document.getElementById('sidebar').classList.remove('open');
+            });
+
+            // Logout Handler
+            document.getElementById('logoutButton').addEventListener('click', () => {
+                localStorage.removeItem('isLoggedIn');
+                localStorage.removeItem('symptoCareUser');
+                CHAT_HISTORY = []; // Clear history on logout
+                displayMessage("Logging out...", 'success');
+                setTimeout(() => {
+                    window.location.href = 'login.html'; 
+                }, 500);
+            });
+        });
+        
+    </script>
+</body>
+</html>

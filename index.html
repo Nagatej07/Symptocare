@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account - SymptoCare</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the background gradient and font */
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%); /* Purple/Violet Gradient */
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        /* Style for the logo text color */
+        .sympto-color {
+            color: #14b8a6; /* A nice teal color */
+        }
+        /* Ensure the form container is centered and handles smaller screens */
+        @media (max-width: 640px) {
+            #form-container {
+                margin-top: 2rem;
+                margin-bottom: 2rem;
+            }
+        }
+    </style>
+</head>
+<body class="p-4">
+    <div id="form-container" class="w-full max-w-md bg-white p-6 sm:p-8 md:p-10 rounded-3xl shadow-2xl transition-all duration-300">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-bold sympto-color mb-1">SymptoCare</h1>
+            <p class="text-gray-500 text-sm">Create Your Account</p>
+        </header>
+
+        <form id="registrationForm" class="space-y-4">
+            <!-- Global Message Box (used for success/error alerts instead of alert()) -->
+            <div id="messageBox" class="hidden p-3 rounded-lg text-center font-medium" role="alert"></div>
+
+            <!-- Username Field -->
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                <input type="text" id="username" name="username" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150" required>
+                <p id="usernameError" class="text-xs text-red-500 mt-1 hidden">3-20 alphanumeric characters and underscore only.</p>
+            </div>
+
+            <!-- Age Field -->
+            <div>
+                <label for="age" class="block text-sm font-medium text-gray-700">Age</label>
+                <input type="number" id="age" name="age" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150" required>
+                <p id="ageError" class="text-xs text-red-500 mt-1 hidden">Must be between 12 and 120 years old.</p>
+            </div>
+
+            <!-- Phone Number Field -->
+            <div>
+                <label for="phone" class="block text-sm font-medium text-gray-700">Phone Number</label>
+                <input type="tel" id="phone" name="phone" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150" required>
+                <p id="phoneError" class="text-xs text-red-500 mt-1 hidden">Enter a valid phone number.</p>
+            </div>
+
+            <!-- Password Field -->
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                <div class="relative mt-1">
+                    <input type="password" id="password" name="password" class="block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 pr-12 transition duration-150" required>
+                    <button type="button" onclick="togglePasswordVisibility('password')" class="absolute inset-y-0 right-0 flex items-center px-3 text-sm font-medium text-blue-600 hover:text-blue-800 focus:outline-none">Show</button>
+                </div>
+                <p id="passwordError" class="text-xs text-red-500 mt-1 hidden">Minimum 6 characters, 1 uppercase, 1 lowercase, 1 number.</p>
+            </div>
+
+            <!-- Confirm Password Field -->
+            <div>
+                <label for="confirmPassword" class="block text-sm font-medium text-gray-700">Confirm Password</label>
+                <div class="relative mt-1">
+                    <input type="password" id="confirmPassword" name="confirmPassword" class="block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 pr-12 transition duration-150" required>
+                    <button type="button" onclick="togglePasswordVisibility('confirmPassword')" class="absolute inset-y-0 right-0 flex items-center px-3 text-sm font-medium text-blue-600 hover:text-blue-800 focus:outline-none">Show</button>
+                </div>
+                <p id="confirmPasswordError" class="text-xs text-red-500 mt-1 hidden">Passwords do not match.</p>
+            </div>
+
+            <!-- Checkboxes -->
+            <div class="space-y-2 pt-2">
+                <div class="flex items-start">
+                    <input id="terms" name="terms" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="terms" class="ml-2 block text-sm text-gray-900">
+                        I agree to the <a href="#" class="text-blue-600 hover:text-blue-800">Terms & Conditions</a>
+                    </label>
+                </div>
+                <div class="flex items-start">
+                    <input id="disclaimer" name="disclaimer" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="disclaimer" class="ml-2 block text-sm text-gray-900">
+                        I acknowledge the <a href="#" class="text-blue-600 hover:text-blue-800">Medical Disclaimer</a>
+                    </label>
+                </div>
+                <p id="checkboxError" class="text-xs text-red-500 mt-1 hidden">You must agree to both terms and the disclaimer.</p>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300 mt-6">
+                Create Account
+            </button>
+        </form>
+
+        <!-- Sign In Link -->
+        <p class="text-center text-sm mt-4 text-gray-600">
+            Already have an account? <a href="login.html" class="text-blue-600 hover:text-blue-800 font-medium">Sign in here</a>
+        </p>
+    </div>
+
+    <script>
+        // Function to toggle password visibility (Show/Hide)
+        function togglePasswordVisibility(fieldId) {
+            const field = document.getElementById(fieldId);
+            const button = field.nextElementSibling; // The button is the next sibling
+
+            if (field.type === 'password') {
+                field.type = 'text';
+                button.textContent = 'Hide';
+            } else {
+                field.type = 'password';
+                button.textContent = 'Show';
+            }
+        }
+
+        // Function to display messages in the message box
+        function displayMessage(message, type = 'error') {
+            const msgBox = document.getElementById('messageBox');
+            msgBox.textContent = message;
+            msgBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+
+            if (type === 'success') {
+                msgBox.classList.add('bg-green-100', 'text-green-700');
+            } else {
+                msgBox.classList.add('bg-red-100', 'text-red-700');
+            }
+        }
+
+        // Function to hide all error messages
+        function hideAllErrors() {
+            document.querySelectorAll('[id$="Error"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById('messageBox').classList.add('hidden');
+            document.querySelectorAll('input').forEach(input => input.classList.remove('border-red-500'));
+        }
+
+        // Main validation function
+        function validateForm(event) {
+            event.preventDefault(); // Stop default form submission
+            hideAllErrors();
+
+            let isValid = true;
+
+            const username = document.getElementById('username').value;
+            const age = parseInt(document.getElementById('age').value);
+            const phone = document.getElementById('phone').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const termsChecked = document.getElementById('terms').checked;
+            const disclaimerChecked = document.getElementById('disclaimer').checked;
+
+            // 1. Username Validation (3-20 alphanumeric and underscore)
+            const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+            if (!usernameRegex.test(username)) {
+                document.getElementById('usernameError').classList.remove('hidden');
+                document.getElementById('username').classList.add('border-red-500');
+                isValid = false;
+            }
+
+            // 2. Age Validation (12-120)
+            if (isNaN(age) || age < 12 || age > 120) {
+                document.getElementById('ageError').classList.remove('hidden');
+                document.getElementById('age').classList.add('border-red-500');
+                isValid = false;
+            }
+
+            // 3. Phone Number Validation (Simple check for 6+ digits)
+            const phoneRegex = /^\d{6,}$/;
+            if (!phoneRegex.test(phone)) {
+                document.getElementById('phoneError').classList.remove('hidden');
+                document.getElementById('phone').classList.add('border-red-500');
+                isValid = false;
+            }
+
+            // 4. Password Validation (min 6 chars, 1 uppercase, 1 lowercase, 1 number)
+            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{6,}$/;
+            if (!passwordRegex.test(password)) {
+                document.getElementById('passwordError').classList.remove('hidden');
+                document.getElementById('password').classList.add('border-red-500');
+                isValid = false;
+            }
+
+            // 5. Confirm Password Validation (must match)
+            if (password !== confirmPassword) {
+                document.getElementById('confirmPasswordError').classList.remove('hidden');
+                document.getElementById('confirmPassword').classList.add('border-red-500');
+                isValid = false;
+            }
+
+            // 6. Checkbox Validation
+            if (!termsChecked || !disclaimerChecked) {
+                document.getElementById('checkboxError').classList.remove('hidden');
+                isValid = false;
+            }
+
+
+            if (isValid) {
+                // 7. Store Data in Local Storage (JSON Payload)
+                const userData = {
+                    username: username,
+                    age: age,
+                    phone: phone,
+                    password: password, 
+                    termsAgreed: termsChecked,
+                    disclaimerAcknowledged: disclaimerChecked,
+                    registrationTimestamp: new Date().toISOString()
+                };
+
+                const userJsonPayload = JSON.stringify(userData);
+
+                // Store the JSON payload in Local Storage using a specific key
+                localStorage.setItem('symptoCareUser', userJsonPayload);
+                console.log('User data stored in localStorage:', userJsonPayload);
+                
+                // Successful Submission Logic
+                displayMessage("Account successfully created and data stored! Redirecting to login...", 'success');
+
+                // The required redirection logic
+                setTimeout(() => {
+                    // This simulates the redirect to the login page after a brief delay
+                    window.location.href = 'login.html'; 
+                }, 1500); // Wait 1.5 seconds before redirecting
+            } else {
+                displayMessage("Please fix the errors above to create your account.", 'error');
+            }
+        }
+
+        // Attach the validation function to the form's submit event
+        document.getElementById('registrationForm').addEventListener('submit', validateForm);
+    </script>
+</body>
+</html>
