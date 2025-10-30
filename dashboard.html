@@ -66,6 +66,25 @@
             align-self: flex-start;
             border-radius: 12px 12px 12px 2px;
         }
+        /* Custom styles for structured AI response */
+        .ai-message h2 {
+            font-size: 1.125rem; /* text-lg */
+            font-weight: 700; /* font-bold */
+            color: #0d9488; /* Teal-600 */
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.25rem;
+            border-bottom: 1px solid #99f6e4; /* Light teal divider */
+        }
+        .ai-message ul {
+            list-style-type: disc;
+            margin-left: 1.25rem; /* pl-5 */
+            padding-left: 0;
+            margin-bottom: 1rem;
+        }
+        .ai-message li {
+            margin-bottom: 0.25rem;
+        }
     </style>
     <!-- Load Lucide icons for a clean look -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -139,7 +158,9 @@
         // --- API & Auth Configuration ---
         const API_KEY = "AIzaSyDS4TGcYxGDCVw7AxTit5OdpYlJ8MXeptI";
         const API_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent';
-        const SYSTEM_INSTRUCTION = "You are SymptoCare, a friendly and cautious AI health companion. Your goal is to help the user understand their symptoms and provide general, non-diagnostic health guidance. ALWAYS include a clear disclaimer that you are NOT a substitute for professional medical advice. Keep responses concise and empathetic.";
+        
+        // UPDATED SYSTEM INSTRUCTION to mandate the five structured sections
+        const SYSTEM_INSTRUCTION = "You are SymptoCare, a friendly and cautious AI health companion. Your primary goal is to provide short structured and general information based on the user's symptoms. ALWAYS structure your response using these exact five Markdown headings, followed by relevant information. Be empathetic and ALWAYS include a clear disclaimer that you are NOT a substitute for professional medical advice.\n\n## User Condition Summary\n## Possible Causes for the Disease\n## Home Remedies and Care\n## Diet Suggestions\n## Severity Analysis and When to Seek Help";
 
 
         // --- Utility Functions ---
@@ -216,6 +237,33 @@
                 msgBox.remove();
             }, 4000);
         }
+        
+        // Markdown to HTML converter for structured output
+        function markdownToHtml(markdown) {
+            let html = markdown;
+
+            // Convert ## headings to H2 tags with custom classes
+            html = html.replace(/^##\s*(.*)$/gm, (match, p1) => {
+                // Return H2 tag, CSS for styling is in the <style> block
+                return `<h2>${p1.trim()}</h2>`;
+            });
+
+            // Convert lists (* or -) to unordered lists
+            html = html.replace(/^\s*[\*-]\s+(.*)$/gm, '<li>$1</li>');
+            html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+            
+            // Clean up list artifacts (multiple ul tags)
+            html = html.replace(/<\/ul>\s*<ul>/g, '');
+
+            // Convert bold text (**) to strong tags
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+            // Convert remaining newlines to breaks
+            html = html.replace(/\n/g, '<br>');
+
+            return html;
+        }
+
 
         // --- Gemini API Function ---
         async function fetchGeminiResponse(userPrompt) {
@@ -308,13 +356,12 @@
                 // 3. Update the loading message with the final response
                 CHAT_HISTORY.push({ user: userPrompt, ai: aiResponseText });
                 
-                const responseContent = `
-                    ${aiResponseText.replace(/\n/g, '<br>')}
-                `;
+                // Use the new markdownToHtml function for structured rendering
+                const responseContentHtml = markdownToHtml(aiResponseText);
 
                 loadingMessage.innerHTML = `
                     <div class="max-w-xs sm:max-w-md p-3 shadow-md text-gray-800 text-sm ai-message">
-                        ${responseContent}
+                        ${responseContentHtml}
                     </div>
                 `;
             } catch (error) {
